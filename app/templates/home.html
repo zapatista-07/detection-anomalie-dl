@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Détection d'Anomalie — Projet Deep Learning</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+
+        :root {
+            --bg-dark:    #060b18;
+            --bg-card:    #0d1526;
+            --bg-card2:   #111d35;
+            --accent:     #3b82f6;
+            --accent2:    #6366f1;
+            --accent3:    #22d3ee;
+            --done:       #10b981;
+            --pending:    #f59e0b;
+            --border:     #1e2d4a;
+            --text:       #e2e8f0;
+            --muted:      #64748b;
+            --light:      #94a3b8;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--bg-dark);
+            color: var(--text);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        /* ── Animated background ── */
+        body::before {
+            content: '';
+            position: fixed; inset: 0; z-index: 0;
+            background:
+                radial-gradient(ellipse 80% 50% at 20% 10%, #1e3a5f33 0%, transparent 60%),
+                radial-gradient(ellipse 60% 40% at 80% 80%, #31216622 0%, transparent 60%);
+            pointer-events: none;
+        }
+
+        /* ── GRID LINES ── */
+        body::after {
+            content: '';
+            position: fixed; inset: 0; z-index: 0;
+            background-image:
+                linear-gradient(rgba(59,130,246,.04) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(59,130,246,.04) 1px, transparent 1px);
+            background-size: 60px 60px;
+            pointer-events: none;
+        }
+
+        .page-wrap {
+            position: relative; z-index: 1;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 3rem 2rem 5rem;
+        }
+
+        /* ── HEADER ── */
+        header { text-align: center; margin-bottom: 4rem; }
+
+        .badge {
+            display: inline-block;
+            background: linear-gradient(135deg, #1e3a5f, #1e2d4a);
+            border: 1px solid var(--accent);
+            color: var(--accent3);
+            font-size: .72rem; font-weight: 600; letter-spacing: .12em;
+            text-transform: uppercase;
+            padding: .35rem .9rem; border-radius: 999px;
+            margin-bottom: 1.25rem;
+        }
+
+        h1 {
+            font-size: clamp(2rem, 5vw, 3.5rem);
+            font-weight: 800;
+            line-height: 1.1;
+            background: linear-gradient(120deg, #f8fafc 0%, var(--accent3) 50%, var(--accent) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: .75rem;
+        }
+
+        .header-sub {
+            color: var(--light);
+            font-size: 1rem; font-weight: 400;
+            max-width: 520px; margin: 0 auto 2rem;
+            line-height: 1.6;
+        }
+
+        .stats-row {
+            display: flex; justify-content: center; gap: 2.5rem; flex-wrap: wrap;
+        }
+        .stat { text-align: center; }
+        .stat-num {
+            font-size: 1.8rem; font-weight: 700;
+            background: linear-gradient(135deg, var(--accent), var(--accent3));
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        .stat-label { font-size: .75rem; color: var(--muted); text-transform: uppercase; letter-spacing: .1em; }
+
+        /* ── DIVIDER ── */
+        .divider {
+            display: flex; align-items: center; gap: 1rem;
+            margin: 3rem 0 2rem;
+        }
+        .divider-line { flex: 1; height: 1px; background: var(--border); }
+        .divider-text {
+            font-size: .75rem; font-weight: 600; letter-spacing: .12em;
+            text-transform: uppercase; color: var(--muted);
+        }
+
+        /* ── GRID ── */
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+            gap: 1.5rem;
+        }
+
+        /* ── CARD ── */
+        .card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 1.75rem;
+            transition: transform .25s, border-color .25s, box-shadow .25s;
+            position: relative;
+            overflow: hidden;
+        }
+        .card::before {
+            content: '';
+            position: absolute; top: 0; left: 0; right: 0; height: 2px;
+            background: linear-gradient(90deg, transparent, var(--card-accent, var(--accent)), transparent);
+            opacity: 0;
+            transition: opacity .3s;
+        }
+        .card:hover {
+            transform: translateY(-4px);
+            border-color: var(--card-accent, var(--accent));
+            box-shadow: 0 20px 60px -10px color-mix(in srgb, var(--card-accent, var(--accent)) 20%, transparent);
+        }
+        .card:hover::before { opacity: 1; }
+
+        /* ── CARD — DONE (Louay) ── */
+        .card.done { --card-accent: var(--done); }
+
+        /* ── CARD — PENDING ── */
+        .card.pending { --card-accent: var(--pending); }
+
+        /* Card header */
+        .card-header {
+            display: flex; align-items: flex-start; justify-content: space-between;
+            margin-bottom: 1.25rem; gap: .75rem;
+        }
+        .member-info { display: flex; align-items: center; gap: .85rem; }
+        .avatar {
+            width: 44px; height: 44px; border-radius: 12px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 1.2rem; font-weight: 700;
+            flex-shrink: 0;
+        }
+        .avatar.green  { background: #064e3b; color: #34d399; }
+        .avatar.blue   { background: #1e3a5f; color: #60a5fa; }
+        .avatar.purple { background: #2e1065; color: #a78bfa; }
+        .avatar.pink   { background: #4a044e; color: #e879f9; }
+        .avatar.orange { background: #431407; color: #fb923c; }
+        .avatar.teal   { background: #042f2e; color: #2dd4bf; }
+
+        .member-name { font-size: 1rem; font-weight: 600; color: #f1f5f9; }
+        .member-role { font-size: .78rem; color: var(--muted); margin-top: 2px; }
+
+        /* Status badge */
+        .status {
+            display: inline-flex; align-items: center; gap: .35rem;
+            font-size: .72rem; font-weight: 600; padding: .3rem .7rem;
+            border-radius: 999px; white-space: nowrap; flex-shrink: 0;
+        }
+        .status.done    { background: #064e3b55; color: #34d399; border: 1px solid #065f4655; }
+        .status.pending { background: #78350f44; color: #fbbf24; border: 1px solid #92400e55; }
+        .status::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+        .status.done::before    { animation: pulse-green 2s infinite; }
+        .status.pending::before { animation: pulse-amber 2s infinite; }
+
+        @keyframes pulse-green {
+            0%,100% { box-shadow: 0 0 0 0 #34d39966; }
+            50%      { box-shadow: 0 0 0 4px #34d39900; }
+        }
+        @keyframes pulse-amber {
+            0%,100% { box-shadow: 0 0 0 0 #fbbf2466; }
+            50%      { box-shadow: 0 0 0 4px #fbbf2400; }
+        }
+
+        /* Card body */
+        .card-title {
+            font-size: 1.05rem; font-weight: 600; color: #f8fafc;
+            margin-bottom: .5rem;
+        }
+        .card-desc {
+            font-size: .85rem; color: var(--light); line-height: 1.6;
+            margin-bottom: 1.25rem;
+        }
+
+        /* Tags */
+        .tags { display: flex; flex-wrap: wrap; gap: .45rem; margin-bottom: 1.25rem; }
+        .tag {
+            font-size: .7rem; font-weight: 500; padding: .25rem .6rem;
+            border-radius: 6px; border: 1px solid var(--border);
+            color: var(--light); background: #ffffff08;
+        }
+
+        /* Action button */
+        .btn-launch {
+            display: flex; align-items: center; justify-content: center; gap: .5rem;
+            width: 100%; padding: .7rem 1rem;
+            border: 1px solid var(--done); border-radius: 10px;
+            background: #064e3b33; color: #34d399;
+            font-size: .85rem; font-weight: 600;
+            text-decoration: none; cursor: pointer;
+            transition: background .2s, box-shadow .2s;
+        }
+        .btn-launch:hover {
+            background: #064e3b66;
+            box-shadow: 0 0 20px #34d39930;
+        }
+        .btn-launch svg { width: 16px; height: 16px; }
+
+        /* Coming soon placeholder */
+        .coming-soon {
+            display: flex; align-items: center; justify-content: center; gap: .5rem;
+            width: 100%; padding: .7rem 1rem;
+            border: 1px dashed #1e2d4a; border-radius: 10px;
+            color: var(--muted); font-size: .82rem; font-weight: 500;
+        }
+
+        /* Progress bar */
+        .progress-wrap { margin-bottom: 1.25rem; }
+        .progress-label {
+            display: flex; justify-content: space-between;
+            font-size: .72rem; color: var(--muted); margin-bottom: .4rem;
+        }
+        .progress-track {
+            height: 4px; background: #1e2d4a; border-radius: 2px; overflow: hidden;
+        }
+        .progress-fill {
+            height: 100%; border-radius: 2px;
+            background: linear-gradient(90deg, var(--accent), var(--accent3));
+            transition: width 1s ease;
+        }
+        .progress-fill.green  { background: linear-gradient(90deg, #059669, #34d399); }
+        .progress-fill.amber  { background: linear-gradient(90deg, #d97706, #fbbf24); }
+
+        /* ── FOOTER ── */
+        footer {
+            text-align: center; margin-top: 5rem;
+            color: var(--muted); font-size: .78rem;
+        }
+        footer span { color: var(--accent); }
+    </style>
+</head>
+<body>
+<div class="page-wrap">
+
+    <!-- ══════════════ HEADER ══════════════ -->
+    <header>
+        <div class="badge">🎓 Projet Deep Learning · 2026</div>
+        <h1>Détection d'Anomalie</h1>
+        <p class="header-sub">
+            Plateforme d'intelligence artificielle développée par une équipe de 6 étudiants —
+            modèles de vision par ordinateur, segmentation et déploiement.
+        </p>
+        <div class="stats-row">
+            <div class="stat">
+                <div class="stat-num">6</div>
+                <div class="stat-label">Membres</div>
+            </div>
+            <div class="stat">
+                <div class="stat-num">2</div>
+                <div class="stat-label">Modèles déployés</div>
+            </div>
+            <div class="stat">
+                <div class="stat-num">5</div>
+                <div class="stat-label">En cours</div>
+            </div>
+        </div>
+    </header>
+
+    <!-- ══════════════ DIVIDER ══════════════ -->
+    <div class="divider">
+        <div class="divider-line"></div>
+        <div class="divider-text">Membres de l'équipe</div>
+        <div class="divider-line"></div>
+    </div>
+
+    <!-- ══════════════ CARDS GRID ══════════════ -->
+    <div class="grid">
+
+        <!-- ─── LOUAY — DONE ─── -->
+        <div class="card done">
+            <div class="card-header">
+                <div class="member-info">
+                    <div class="avatar green">L</div>
+                    <div>
+                        <div class="member-name">Louay</div>
+                        <div class="member-role">Déploiement & API</div>
+                    </div>
+                </div>
+                <span class="status done">Déployé</span>
+            </div>
+            <div class="progress-wrap">
+                <div class="progress-label"><span>Progression</span><span>100%</span></div>
+                <div class="progress-track">
+                    <div class="progress-fill green" style="width:100%"></div>
+                </div>
+            </div>
+            <a href="/demo" class="btn-launch">
+                <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round"
+                          d="M13 10V3L4 14h7v7l9-11h-7z"/>
+                </svg>
+                Voir en action
+            </a>
+        </div>
+
+        <!-- ─── SAMAR ─── -->
+        <div class="card pending">
+            <div class="card-header">
+                <div class="member-info">
+                    <div class="avatar blue">S</div>
+                    <div>
+                        <div class="member-name">Samar</div>
+                        <div class="member-role">Deep Learning</div>
+                    </div>
+                </div>
+                <span class="status pending">En cours</span>
+            </div>
+            <div class="progress-wrap">
+                <div class="progress-label"><span>Progression</span><span>—</span></div>
+                <div class="progress-track">
+                    <div class="progress-fill amber" style="width:0%"></div>
+                </div>
+            </div>
+            <div class="coming-soon">🔒 Démo bientôt disponible</div>
+        </div>
+
+        <!-- ─── AZZA ─── -->
+        <div class="card pending">
+            <div class="card-header">
+                <div class="member-info">
+                    <div class="avatar purple">A</div>
+                    <div>
+                        <div class="member-name">Azza</div>
+                        <div class="member-role">Deep Learning</div>
+                    </div>
+                </div>
+                <span class="status pending">En cours</span>
+            </div>
+            <div class="progress-wrap">
+                <div class="progress-label"><span>Progression</span><span>—</span></div>
+                <div class="progress-track">
+                    <div class="progress-fill amber" style="width:0%"></div>
+                </div>
+            </div>
+            <div class="coming-soon">🔒 Démo bientôt disponible</div>
+        </div>
+
+        <!-- ─── ROUA LZ ─── -->
+        <div class="card pending">
+            <div class="card-header">
+                <div class="member-info">
+                    <div class="avatar teal">R</div>
+                    <div>
+                        <div class="member-name">Roua LZ</div>
+                        <div class="member-role">Deep Learning</div>
+                    </div>
+                </div>
+                <span class="status pending">En cours</span>
+            </div>
+            <div class="progress-wrap">
+                <div class="progress-label"><span>Progression</span><span>—</span></div>
+                <div class="progress-track">
+                    <div class="progress-fill amber" style="width:0%"></div>
+                </div>
+            </div>
+            <div class="coming-soon">🔒 Démo bientôt disponible</div>
+        </div>
+
+        <!-- ─── ROUA TOUI ─── -->
+        <div class="card pending">
+            <div class="card-header">
+                <div class="member-info">
+                    <div class="avatar orange">R</div>
+                    <div>
+                        <div class="member-name">Roua Toui</div>
+                        <div class="member-role">Deep Learning</div>
+                    </div>
+                </div>
+                <span class="status pending">En cours</span>
+            </div>
+            <div class="progress-wrap">
+                <div class="progress-label"><span>Progression</span><span>—</span></div>
+                <div class="progress-track">
+                    <div class="progress-fill amber" style="width:0%"></div>
+                </div>
+            </div>
+            <div class="coming-soon">🔒 Démo bientôt disponible</div>
+        </div>
+
+        <!-- ─── GHOFRANE ─── -->
+        <div class="card pending">
+            <div class="card-header">
+                <div class="member-info">
+                    <div class="avatar pink">G</div>
+                    <div>
+                        <div class="member-name">Ghofrane</div>
+                        <div class="member-role">Deep Learning</div>
+                    </div>
+                </div>
+                <span class="status pending">En cours</span>
+            </div>
+            <div class="progress-wrap">
+                <div class="progress-label"><span>Progression</span><span>—</span></div>
+                <div class="progress-track">
+                    <div class="progress-fill amber" style="width:0%"></div>
+                </div>
+            </div>
+            <div class="coming-soon">🔒 Démo bientôt disponible</div>
+        </div>
+
+    </div><!-- /grid -->
+
+    <!-- ══════════════ FOOTER ══════════════ -->
+    <footer>
+        <p>Projet Deep Learning · Détection d'Anomalie · <span>2026</span></p>
+        <p style="margin-top:.4rem">Équipe de 6 · Déployé avec <span>Flask</span> + <span>PyTorch</span></p>
+    </footer>
+
+</div>
+</body>
+</html>
